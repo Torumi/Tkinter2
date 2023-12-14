@@ -1,1 +1,4 @@
-/rents
+\.idea
+\__pycache__
+\venv
+\rents
