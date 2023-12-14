@@ -5,7 +5,8 @@ class Observable:
     _observers: list = []
 
     def attach(self, observer):
-        self._observers.append(observer)
+        if observer not in self._observers:
+            self._observers.append(observer)
 
     def detach(self, observer):
         if observer not in self._observers:
@@ -13,15 +14,18 @@ class Observable:
             return
         self._observers.remove(observer)
 
-    def notify(self):
+    def notify(self, message: str):
         for observer in self._observers:
-            observer.update(self)
+            observer.update(self, message)
+
+    def clear(self):
+        self._observers = []
 
 
 class Observer(ABC):
 
     @abstractmethod
-    def update(self, subject: Observable):
+    def update(self, subject: Observable, message: str):
         pass
 
     def subscribe(self, observable: Observable):

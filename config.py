@@ -1,1 +1,1 @@
-RENT_FILE_PATH = './rents/rents.json'
+RENT_FILE_PATH = 'rents.json'

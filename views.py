@@ -1,4 +1,5 @@
 import datetime
+import re
 import tkinter as tk
 import uuid
 from typing import Callable
@@ -29,14 +30,25 @@ class RentAddView(tk.Frame, Observable):
     def entry_field(self):
         return self._entry_field
 
+    def _validate_only_nums(self, p):
+        return bool(re.match(r'^\d*\.?\d{0,2}$', p))
+
+    def _on_invalid(self, w):
+        self.children[w.split('.')[-1]].delete(len(self.children[w.split('.')[-1]].get()), tk.END)
+
+
     def add_entry(self, label: str, name: str, entry_type=None):
-        self._input_vars[name] = tk.Variable(name=name)
+        self._input_vars[name] = tk.StringVar(name=name)
         entry_label = tk.Label(master=self, text=label)
         if entry_type == 'date':
             entry = tkcalendar.DateEntry(master=self, selectmode='day', date_pattern='dd.mm.y', textvariable=self._input_vars[name])
         elif entry_type == 'number':
-            # TODO: Make mask to write only numbers
-            ...
+            validate_cmd = (self.register(self._validate_only_nums), '%P')
+            invalid_cmd = (self.register(self._on_invalid), "%W")
+            self._input_vars[name] = tk.DoubleVar(name=name)
+            entry = tk.Entry(master=self, textvariable=self._input_vars[name],
+                             validate='key', validatecommand=validate_cmd, invalidcommand=invalid_cmd)
+            self._input_vars[name].set(0)
         else:
             entry = tk.Entry(master=self, textvariable=self._input_vars[name])
 
@@ -54,7 +66,12 @@ class RentAddView(tk.Frame, Observable):
         self.pack()
 
     def submit(self):
-        # TODO: Forbid to create rent with non-unique product name
+        if self._input_vars['name'].get() in RentStore.get_dict():
+            if 'submit_msg' in self.children:
+                self.children['submit_msg'].destroy()
+            submit_msg = tk.Label(self, name='submit_msg', text='FAIL: Rent with such name already added', fg='red')
+            submit_msg.grid(row=self.fields_counter, column=0, columnspan=2, sticky=tk.E)
+            return
         new_renter = RenterModel(self._input_vars['renter_name'].get(),
                                  self._input_vars['renter_last_name'].get(),
                                  self._input_vars['renter_personal_code'].get(),
@@ -62,15 +79,15 @@ class RentAddView(tk.Frame, Observable):
         new_rent = RentModel(self._input_vars['category'].get(),
                              self._input_vars['name'].get(),
                              self._input_vars['description'].get(),
-                             int(self._input_vars['daily_price'].get()) if self._input_vars['daily_price'].get() else 0,
+                             self._input_vars['daily_price'].get() if self._input_vars['daily_price'].get() else 0.0,
                              new_renter,
                              datetime.datetime.strptime(self._input_vars['start_date'].get(), '%d.%m.%Y'),
                              datetime.datetime.strptime(self._input_vars['end_date'].get(), '%d.%m.%Y'))
         RentStore.append(new_rent)
         RentStore.save()
-        submit_msg = tk.Label(self, text='Successfully added rent!', fg='green')
+        submit_msg = tk.Label(self, name='submit_msg', text='Successfully added rent!', fg='green')
         submit_msg.grid(row=self.fields_counter, column=0, columnspan=2, sticky=tk.E)
-        self.notify()
+        self.notify("rent_added")
 
 
 class RentList(Observer, tk.Frame):
@@ -83,13 +100,19 @@ class RentList(Observer, tk.Frame):
 
     def append_rent(self, name: str):
         self._rent_list['values'] = (*self._rent_list['values'], name)
+    def clear(self):
+        self._rent_list['values'] = ()
 
     def load_list(self):
         for model in RentStore.get_dict():
             self.append_rent(model)
     
-    def update(self, subject: Observable):
-        self.append_rent(subject.children['!entry'].get())
+    def update(self, subject: Observable, message: str):
+        if message == 'rent_added':
+            self.append_rent(subject.children['!entry'].get())
+        elif message == 'rent_removed':
+            self.clear()
+            self.load_list()
 
     def bind_list(self, sequence: str, callback: Callable):
         self._rent_list.bind(sequence, callback)
@@ -98,3 +121,22 @@ class RentList(Observer, tk.Frame):
         return self._rent_list.get()
 
 
+class RentRemoveWindow(Observable, tk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self._rent_list = tk.Listbox(self)
+        # self._rent_list['values'] = tuple(RentStore.get_dict())
+        for rent in RentStore.get_dict():
+            self._rent_list.insert(tk.END, rent)
+        self._del_btn = tk.Button(self, text='Delete', command=self.delete)
+        self._del_btn.grid(row=0, column=0)
+        self._rent_list.grid(row=1, column=0)
+        self.pack()
+
+    def delete(self):
+        for i in self._rent_list.curselection():
+            rent_to_del_name = self._rent_list.get(i)
+            self._rent_list.delete(i, i)
+            RentStore.remove(RentStore.get_dict()[rent_to_del_name])
+            RentStore.save()
+        self.notify('rent_removed')

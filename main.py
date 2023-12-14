@@ -6,6 +6,7 @@ from rent_store import RentStore
 # from controllers import RentController
 from models import RentModel
 import views
+from observer import Observer, Observable
 
 
 class ManagerMain(tk.Tk):
@@ -30,6 +31,8 @@ class ManagerMain(tk.Tk):
 
         self.add_rent_btn = tk.Button(self.button_container, text='Add Rent', command=self.add_entry_window)
         self.add_rent_btn.pack()
+        self.delete_rent_btn = tk.Button(self.button_container, text='Delete Rent', command=self.add_delete_window)
+        self.delete_rent_btn.pack()
         self.rent_list = views.RentList(self.rent_list_container)
         self.rent_list.bind_list('<<ComboboxSelected>>', self.create_rent_view)
 
@@ -42,7 +45,7 @@ class ManagerMain(tk.Tk):
         rent_add_window.add_entry("Name", 'name')
         rent_add_window.add_entry("Category", 'category')
         rent_add_window.add_entry("Description", 'description')
-        rent_add_window.add_entry("Daily price", 'daily_price')
+        rent_add_window.add_entry("Daily price", 'daily_price', entry_type='number')
         rent_add_window.add_entry("Renter name", 'renter_name')
         rent_add_window.add_entry("Renter last name", 'renter_last_name')
         rent_add_window.add_entry("Renter personal code", 'renter_personal_code')
@@ -52,8 +55,15 @@ class ManagerMain(tk.Tk):
         rent_add_window.pack_field()
         self.rent_list.subscribe(rent_add_window)
 
+    def add_delete_window(self):
+        self.clear_working_container()
+        rent_remove_window = views.RentRemoveWindow(self.working_container)
+        self.rent_list.subscribe(rent_remove_window)
+
     def clear_working_container(self):
         for widget in self.working_container.winfo_children():
+            if isinstance(widget, Observable):
+                widget.clear()
             widget.destroy()
 
     def create_rent_view(self, event):
