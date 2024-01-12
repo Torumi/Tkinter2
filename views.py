@@ -1,7 +1,6 @@
 import datetime
 import re
 import tkinter as tk
-import uuid
 from typing import Callable
 from tkinter import ttk
 import tkcalendar
@@ -30,11 +29,11 @@ class RentAddView(tk.Frame, Observable):
     def entry_field(self):
         return self._entry_field
 
-    def _validate_only_nums(self, p):
-        return bool(re.match(r'^\d*\.?\d{0,2}$', p))
+    def _validate_only_nums(self, entry_value):
+        return bool(re.match(r'^\d*\.?\d{0,2}$', entry_value))
 
-    def _on_invalid(self, w):
-        self.children[w.split('.')[-1]].delete(len(self.children[w.split('.')[-1]].get()), tk.END)
+    def _on_invalid(self, widget_name):
+        self.children[widget_name.split('.')[-1]].delete(len(self.children[widget_name.split('.')[-1]].get()), tk.END)
 
 
     def add_entry(self, label: str, name: str, entry_type=None):
